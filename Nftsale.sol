@@ -22,11 +22,23 @@ contract NFTSale is IERC721 {
     bool isOnSale;
   }
 
+  uint public tokenId;
+
   mapping(uint256 => nft) nfts; // stores details of nft on auction
 
-  event OnSale(uint256 indexed tokenId, uint256 minPrice, uint256 endTime);
-  event Bid(uint256 indexed tokenId, address indexed bidder, uint256 price);
-  event SaleEnded(uint256 indexed tokenId, address indexed buyer, uint256 price);
+  modifier doesExist(uint _tokenId){
+    require(_owners[_tokenId] != address(0), 'no token exists');
+    _;
+  }
+
+  modifier notZeroAddress(address _to){
+      require(_to != address(0), 'transfering to zero address');
+      _;
+  }
+
+  event OnSale(uint256 indexed _tokenId, uint256 minPrice, uint256 endTime);
+  event Bid(uint256 indexed _tokenId, address indexed bidder, uint256 price);
+  event SaleEnded(uint256 indexed _tokenId, address indexed buyer, uint256 price);
 
   constructor(string memory name_, string memory symbol_) {
     _name = name_;
@@ -49,79 +61,75 @@ contract NFTSale is IERC721 {
 
   /**
   checks if a token already exist
-  @param tokenId - token id
+  @param _tokenId - token id
    */
-  function _exists(uint256 tokenId) internal view returns (bool) {
-    return _owners[tokenId] != address(0);
+  function _exists(uint256 _tokenId) internal view returns (bool) {
+    return _owners[_tokenId] != address(0);
   }
 
   /**
-  Mint a token with id `tokenId`
-  @param tokenId - token id
+  Mint a token with id `_tokenId`
    */
-  function mint(uint256 tokenId) public {
-    require(!_exists(tokenId), 'tokenId already exist');
+  function mint() public {
     _safeMint(msg.sender, tokenId, "");
+    tokenId++;
   }
 
   /**
   Mint safely as this function checks whether the receiver has implemented onERC721Received if its a contract
   @param to - to address
-  @param tokenId - token id
+  @param _tokenId - token id
   @param data - data
    */
-  function _safeMint(address to, uint256 tokenId, bytes memory data) internal {
-    _mint(to, tokenId);
-    require(_checkOnERC721Received(address(0), to, tokenId, data), "receiver has not implemented ERC721Receiver");
+  function _safeMint(address to, uint256 _tokenId, bytes memory data) internal {
+    _mint(to, _tokenId);
+    require(_checkOnERC721Received(address(0), to, _tokenId, data), "receiver has not implemented ERC721Receiver");
   }
 
   /**
-  Internal function to mint a token `tokenId` to `to`
+  Internal function to mint a token `_tokenId` to `to`
   @param to - to address
-  @param tokenId - token id
+  @param _tokenId - token id
    */
-  function _mint(address to, uint256 tokenId) internal {
-    require(to != address(0), 'transfering to zero addres');
+  function _mint(address to, uint256 _tokenId) internal notZeroAddress(to){
     _balances[to] += 1;
-    _owners[tokenId] = to;
-    emit Transfer(address(0), to, tokenId);
+    _owners[_tokenId] = to;
+    emit Transfer(address(0), to, _tokenId);
   }
 
   /**
   Internal function to check if msg.sender is either owner or approved
   @param sender - address
-  @param tokenId - token id
+  @param _tokenId - token id
    */
-  function isOwnerOrApproved (address sender, uint256 tokenId) internal view returns (bool) {
-    require(_owners[tokenId] != address(0), 'no token exists');
-    return (sender == _owners[tokenId] || sender == _approvedTokens[tokenId]);
+  function isOwnerOrApproved (address sender, uint256 _tokenId) internal view  doesExist(_tokenId) returns (bool)  {
+    return (sender == _owners[_tokenId] || sender == _approvedTokens[_tokenId]);
   }
 
   /**
-  Internal function to approve a token `tokenId` to `to`
+  Internal function to approve a token `_tokenId` to `to`
   @param to - to address
-  @param tokenId - token id
+  @param _tokenId - token id
    */
-  function _approve(address to, uint256 tokenId) internal {
-    _approvedTokens[tokenId] = to;
-    emit Approval(_owners[tokenId], to, tokenId);
+  function _approve(address to, uint256 _tokenId) internal {
+    _approvedTokens[_tokenId] = to;
+    emit Approval(_owners[_tokenId], to, _tokenId);
   }
 
   /**
   IERC721 specification
    */
-  function approve(address approved, uint256 tokenId) public override { 
-    address owner = _owners[tokenId];
-    require(msg.sender == _owners[tokenId] || isApprovedForAll(owner, msg.sender), 'caller not an owner or not approved all');
-    _approve(approved, tokenId);
+  function approve(address approved, uint256 _tokenId) public override { 
+    address owner = _owners[_tokenId];
+    require(msg.sender == _owners[_tokenId] || isApprovedForAll(owner, msg.sender), 'caller not an owner or not approved all');
+    _approve(approved, _tokenId);
   }
 
   /**
   IERC721 specification
    */
-  function getApproved(uint256 tokenId) public view override returns (address) {
-    require(_owners[tokenId] != address(0), 'no token exists');
-    return _approvedTokens[tokenId];
+  function getApproved(uint256 _tokenId) public view doesExist(_tokenId) override returns (address){
+    return _approvedTokens[_tokenId];
   }
 
   /**
@@ -151,102 +159,101 @@ contract NFTSale is IERC721 {
   /**
   IERC721 specification
    */
-  function ownerOf(uint256 tokenId) public view override returns (address) {
-    require(_owners[tokenId] != address(0), 'no token exists');
-    return _owners[tokenId];
+  function ownerOf(uint256 _tokenId) public view doesExist(_tokenId) override returns (address) {
+    return _owners[_tokenId];
   }
 
   /**
   Internal function to transfer a token from `from` to `to`
   @param from - from address
   @param to - to address
-  @param tokenId - token id
+  @param _tokenId - token id
    */
-  function _transfer(address from, address to, uint256 tokenId) internal {
-    require(to != address(0), 'transfering to zero addres');
-    _owners[tokenId] = to;
+  function _transfer(address from, address to, uint256 _tokenId) internal notZeroAddress(to){
+    _owners[_tokenId] = to;
     _balances[to] += 1;
     _balances[from] -= 1;
 
-    emit Transfer(from, to, tokenId);
+    emit Transfer(from, to, _tokenId);
   }
 
   /**
   IERC721 specification
    */
-  function safeTransferFrom(address from, address to, uint256 tokenId) public override {
-    safeTransferFrom(from, to, tokenId, "");
+  function safeTransferFrom(address from, address to, uint256 _tokenId) public override {
+    safeTransferFrom(from, to, _tokenId, "");
   }
 
   /**
   IERC721 specification
    */
-  function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public override {
-    require(isOwnerOrApproved(msg.sender, tokenId), 'caller not an owner or approved');
-    _transfer(from, to, tokenId);
-    require(_checkOnERC721Received(from, to, tokenId, data), "receiver has not implemented ERC721Receiver");
+  function safeTransferFrom(address from, address to, uint256 _tokenId, bytes memory data) public override {
+    require(isOwnerOrApproved(msg.sender, _tokenId), 'caller not an owner or approved');
+    _transfer(from, to, _tokenId);
+    require(_checkOnERC721Received(from, to, _tokenId, data), "receiver has not implemented ERC721Receiver");
   }
 
   /**
   Transfer a token from `from` to `to`
   @param from - from address
   @param to - to address
-  @param tokenId - token id
+  @param _tokenId - token id
    */
-  function transferFrom(address from, address to, uint256 tokenId) public override {
-    require(isOwnerOrApproved(msg.sender, tokenId), 'caller not an owner or approved');
-    _transfer(from, to, tokenId);
+  function transferFrom(address from, address to, uint256 _tokenId) public override {
+    require(isOwnerOrApproved(msg.sender, _tokenId), 'caller not an owner or approved');
+    _transfer(from, to, _tokenId);
   }
 
     /**
   Owner can put a token on auction.
-  @param tokenId - token id 
+  @param _tokenId - token id 
   @param price - minimum price required
   @param endTime - end time of auction
    */
-  function putOnAuction(uint256 tokenId, uint256 price, uint256 endTime) public {
-    require(isOwnerOrApproved(msg.sender, tokenId), 'caller not an owner or approved');
-    require(nfts[tokenId].isOnSale == false, 'Already on sale');
-    nfts[tokenId].minPrice = price;
-    nfts[tokenId].endTime = endTime;
-    nfts[tokenId].seller = payable(msg.sender);
-    nfts[tokenId].bid = 0;
-    nfts[tokenId].isOnSale = true;
-    emit OnSale(tokenId, price, endTime);
+  function putOnAuction(uint256 _tokenId, uint256 price, uint256 endTime) public {
+    require(isOwnerOrApproved(msg.sender, _tokenId), 'caller not an owner or approved');
+    require(nfts[_tokenId].isOnSale == false, 'Already on sale');
+    nft storage _nft = nfts[_tokenId];
+    _nft.minPrice = price;
+    _nft.endTime = endTime;
+    _nft.seller = payable(msg.sender);
+    _nft.bid = 0;
+    _nft.isOnSale = true;
+    emit OnSale(_tokenId, price, endTime);
   }
 
   /**
   Bid for a token on sale. Bid amount has to be higher than current bid or minimum price.
   Accepts ether as the function is payable
-  @param tokenId - token id 
+  @param _tokenId - token id 
    */
-  function bid(uint256 tokenId) public payable {
-    require(_owners[tokenId] != msg.sender, 'owner cannot bid');
-    require(nfts[tokenId].isOnSale == true, 'Not on sale');
-    require(nfts[tokenId].endTime > block.timestamp, 'Sale ended');
-    if (nfts[tokenId].bid == 0) {
-      require(msg.value > nfts[tokenId].minPrice, 'value sent is lower than min price');
+  function bid(uint256 _tokenId) public payable {
+    require(_owners[_tokenId] != msg.sender, 'owner cannot bid');
+    require(nfts[_tokenId].isOnSale == true, 'Not on sale');
+    require(nfts[_tokenId].endTime > block.timestamp, 'Sale ended');
+    if (nfts[_tokenId].bid == 0) {
+      require(msg.value > nfts[_tokenId].minPrice, 'value sent is lower than min price');
     } else {
-      require(msg.value > nfts[tokenId].bid, 'value sent is lower than current bid');
-      UserBalances[nfts[tokenId].bidder] = addNumer(UserBalances[nfts[tokenId].bidder], nfts[tokenId].bid);
+      require(msg.value > nfts[_tokenId].bid, 'value sent is lower than current bid');
+      UserBalances[nfts[_tokenId].bidder] = addNumer(UserBalances[nfts[_tokenId].bidder], nfts[_tokenId].bid);
     }
-    nfts[tokenId].bidder = payable(msg.sender);
-    nfts[tokenId].bid = msg.value;
-    emit Bid(tokenId, nfts[tokenId].bidder, msg.value);
+    nfts[_tokenId].bidder = payable(msg.sender);
+    nfts[_tokenId].bid = msg.value;
+    emit Bid(_tokenId, nfts[_tokenId].bidder, msg.value);
   }
 
   /**
   Claim a token after end of sale
-  @param tokenId - token id 
+  @param _tokenId - token id 
    */
-  function claim(uint256 tokenId) public {
-    require(msg.sender == nfts[tokenId].bidder, 'Not latest bidder');
-    require(nfts[tokenId].endTime < block.timestamp, 'Cannot claim before sale end time');
-    require(nfts[tokenId].isOnSale == true, 'Not on sale');
-    UserBalances[nfts[tokenId].seller] = addNumer(UserBalances[nfts[tokenId].seller], nfts[tokenId].bid);
-    nfts[tokenId].isOnSale = false;
-    _transfer(nfts[tokenId].seller, nfts[tokenId].bidder, tokenId);
-    emit SaleEnded(tokenId, nfts[tokenId].bidder, nfts[tokenId].bid);
+  function claim(uint256 _tokenId) public {
+    require(msg.sender == nfts[_tokenId].bidder, 'Not latest bidder');
+    require(nfts[_tokenId].endTime < block.timestamp, 'Cannot claim before sale end time');
+    require(nfts[_tokenId].isOnSale == true, 'Not on sale');
+    UserBalances[nfts[_tokenId].seller] = addNumer(UserBalances[nfts[_tokenId].seller], nfts[_tokenId].bid);
+    nfts[_tokenId].isOnSale = false;
+    _transfer(nfts[_tokenId].seller, nfts[_tokenId].bidder, _tokenId);
+    emit SaleEnded(_tokenId, nfts[_tokenId].bidder, nfts[_tokenId].bid);
   }
 
   function withDrawEther() public {
@@ -261,10 +268,10 @@ contract NFTSale is IERC721 {
   
   /**
   Get status of a token
-  @param tokenId - token id 
+  @param _tokenId - token id 
    */
-  function getNFTBidStatus(uint256 tokenId) public view returns (bool, address) {
-    return (nfts[tokenId].isOnSale, nfts[tokenId].bidder);
+  function getNFTBidStatus(uint256 _tokenId) public view returns (bool, address) {
+    return (nfts[_tokenId].isOnSale, nfts[_tokenId].bidder);
   }
 
   /**
@@ -285,11 +292,11 @@ contract NFTSale is IERC721 {
   function _checkOnERC721Received(
     address from,
     address to,
-    uint256 tokenId,
+    uint256 _tokenId,
     bytes memory _data
   ) private returns (bool) {
       if (isContract(to)) {
-          try IERC721Receiver(to).onERC721Received(msg.sender, from, tokenId, _data) returns (bytes4 retval) {
+          try IERC721Receiver(to).onERC721Received(msg.sender, from, _tokenId, _data) returns (bytes4 retval) {
               return retval == IERC721Receiver.onERC721Received.selector;
           } catch (bytes memory reason) {
               if (reason.length == 0) {
